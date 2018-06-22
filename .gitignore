@@ -1,0 +1,46 @@
+node_modules/
+build/
+
+# solidity-coverage
+/coverage/
+/coverage.json
+/coverageEnv/
+/allFiredEvents
+/scTopics
+
+# Ignore all logfiles and tempfiles.
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+app/test/unit/coverage/
+app/test/e2e/reports/
+selenium-debug.log
+
+# OS generated #
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.svd
+*.userprefs
+*.csproj
+*.pidb
+*.user
+*.unityproj
+*.booproj
+ExportedObj/

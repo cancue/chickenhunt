@@ -1,0 +1,55 @@
+{
+  "private": true,
+  "name": "chickenhunt-contract",
+  "version": "1.0.0",
+  "description": "chickenhunt smart contract",
+  "main": "truffle.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test && npm run lint",
+    "watch": "npm-watch",
+    "lint": "eslint --ext .js test migrations truffle.js"
+  },
+  "watch": {
+    "test": {
+      "patterns": [
+        "test",
+        "contracts",
+        "migrations"
+      ],
+      "extensions": "js,sol"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cancue/chickenhunt.git"
+  },
+  "keywords": [
+    "ethereum",
+    "dapp",
+    "solidity"
+  ],
+  "author": "M.H. Kang <root@guap.kr>",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/cancue/chickenhunt/issues"
+  },
+  "homepage": "https://github.com/cancue/chickenhunt#readme",
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "eslint-config-standard": "^11.0.0",
+    "eslint-plugin-import": "^2.11.0",
+    "eslint-plugin-node": "^6.0.1",
+    "eslint-plugin-promise": "^3.7.0",
+    "eslint-plugin-standard": "^3.1.0",
+    "npm-watch": "^0.3.0"
+  },
+  "dependencies": {
+    "bignumber.js": "^7.2.1",
+    "chai": "^4.1.2",
+    "chai-bignumber": "^2.0.2",
+    "solidity-coverage": "^0.5.4"
+  }
+}
