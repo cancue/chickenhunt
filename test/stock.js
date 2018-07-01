@@ -369,3 +369,72 @@ contract('Stock - three users', ([committee, user1, user2, user3, user4]) => {
     })
   })
 })
+
+// most 1~2 is dividends error
+contract('Stock - get dividends without burning', ([committee, user1, user2, user3, user4]) => {
+  const wei = BigNumber(2).pow(32).integerValue().toString(10)
+  const users = [user1, user2, user3]
+  let subject
+
+  before(async () => {
+    subject = await CHStockStub.new()
+    await subject.init(committee)
+  })
+
+  afterEach(async () => {
+    const checksum = await subject.checkBalances.call([
+      user1, user2, user3, user4
+    ])
+    checksum.should.be.bignumber.most(2)
+  })
+
+  describe('giveShare', () => {
+    before(async () => {
+      await Promise.all(
+        users.map((addr) => subject.giveShares(addr, wei))
+      )
+      const balances = await Promise.all(
+        users.map((addr) => subject.balanceOf(addr))
+      )
+      for (let balance of balances) {
+        assert.equal(balance, wei)
+      }
+      const ethereumBalances = await Promise.all(
+        users.map((addr) => subject.ethereumBalance(addr))
+      )
+      for (let ethereumBalance of ethereumBalances) {
+        assert.equal(ethereumBalance, 0)
+      }
+    })
+
+    it('should get dividends without burning shares', async () => {
+      const actor = users[1]
+      const dummy = users[2]
+      await subject.dividendsOf(actor)
+      const [dividends, dummyDividends] = await Promise.all([
+        subject.dividendsOf(actor),
+        subject.dividendsOf(dummy)
+      ])
+      dividends.minus(BigNumber(wei).times(5).div(6).integerValue()).should.be.bignumber.most(1)
+      await subject.transfer(dummy, wei, { from: actor })
+      await subject.redeemShares({ from: actor })
+      await subject.transfer(actor, wei, { from: dummy })
+      const [
+        afterDividends,
+        afterDummyDividends,
+        afterEthereumBalance,
+        afterDummyEthereumBalance
+      ] = await Promise.all([
+        subject.dividendsOf(actor),
+        subject.dividendsOf(dummy),
+        subject.ethereumBalance(actor),
+        subject.ethereumBalance(dummy)
+      ])
+
+      afterDividends.should.be.bignumber.equal(0)
+      afterDummyDividends.should.be.bignumber.equal(dummyDividends)
+      afterEthereumBalance.should.be.bignumber.equal(dividends)
+      afterDummyEthereumBalance.should.be.bignumber.equal(0)
+    })
+  })
+})
