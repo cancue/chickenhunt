@@ -1,5 +1,6 @@
 const Ethername = artifacts.require('./lib/Ethername.sol')
 const ChickenHunt = artifacts.require('./test/ChickenHuntStub.sol')
+const CHCommitteeWrapper = artifacts.require('./CHCommitteeWrapper.sol')
 const BigNumber = require('bignumber.js')
 const helpers = require('./helpers.js')
 require('chai')
@@ -11,12 +12,14 @@ const UINT16MAX = helpers.uint16Max
 let petLength = 3
 let itemLength = 2
 
-contract('Committee', ([committee, otherUser, _new, anybody]) => {
-  let subject
+contract('CommitteeWrapper', ([committee, otherUser, _new, somebody, tokenAddress]) => {
+  let chickenHunt, subject
 
   before(async () => {
-    subject = await ChickenHunt.new()
-    await subject.init(committee)
+    chickenHunt = await ChickenHunt.new()
+    subject = await CHCommitteeWrapper.new(chickenHunt.address)
+    await chickenHunt.init(tokenAddress)
+    await chickenHunt.setCommittee(subject.address)
   })
 
   describe('callFor', () => {
@@ -26,13 +29,12 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
     before(async () => {
       ethername = await Ethername.new()
       await ethername.rawRegister(name)
-      await ethername.rawTransfer(subject.address, name)
+      await ethername.rawTransfer(chickenHunt.address, name)
       const nameOwner = await ethername.rawOwnerOf(name)
-      nameOwner.should.be.equal(subject.address)
+      nameOwner.should.be.equal(chickenHunt.address)
 
       validInputs = [
         ethername.address,
-        0,
         60000,
         ethername.contract.rawTransfer.getData(otherUser, name)
       ]
@@ -41,7 +43,7 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
     describe('when sender is not committee', () => {
       it('reverts', async () => {
         await helpers.assertRevert(
-          subject.callFor(...validInputs, { from: anybody })
+          subject.callFor(...validInputs, { from: somebody })
         )
       })
     })
@@ -92,21 +94,12 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when minValid', () => {
         it('should work', async () => {
           let _inputs = minValid
-          const { logs } = await subject.addPet(..._inputs, {
+          await subject.addPet(..._inputs, {
             from: committee
           })
           petLength += 1
 
-          logs.should.be.lengthOf(1)
-          logs[0].event.should.be.equal('NewPet')
-          logs[0].args.id.should.be.bignumber.equal(petLength - 1)
-          logs[0].args.huntingPower.should.be.bignumber.equal(_inputs[0])
-          logs[0].args.offensePower.should.be.bignumber.equal(_inputs[1])
-          logs[0].args.defense.should.be.bignumber.equal(_inputs[2])
-          logs[0].args.chicken.should.be.bignumber.equal(_inputs[3])
-          logs[0].args.ethereum.should.be.bignumber.equal(_inputs[4])
-          logs[0].args.max.should.be.bignumber.equal(_inputs[5])
-          const pet = await subject.pets(petLength - 1)
+          const pet = await chickenHunt.pets(petLength - 1)
           pet[0].should.be.bignumber.equal(_inputs[0])
           pet[1].should.be.bignumber.equal(_inputs[1])
           pet[2].should.be.bignumber.equal(_inputs[2])
@@ -119,21 +112,12 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when maxValid', () => {
         it('should work', async () => {
           let _inputs = maxValid
-          const { logs } = await subject.addPet(..._inputs, {
+          await subject.addPet(..._inputs, {
             from: committee
           })
           petLength += 1
 
-          logs.should.be.lengthOf(1)
-          logs[0].event.should.be.equal('NewPet')
-          logs[0].args.id.should.be.bignumber.equal(petLength - 1)
-          logs[0].args.huntingPower.should.be.bignumber.equal(_inputs[0])
-          logs[0].args.offensePower.should.be.bignumber.equal(_inputs[1])
-          logs[0].args.defense.should.be.bignumber.equal(_inputs[2])
-          logs[0].args.chicken.should.be.bignumber.equal(_inputs[3])
-          logs[0].args.ethereum.should.be.bignumber.equal(_inputs[4])
-          logs[0].args.max.should.be.bignumber.equal(_inputs[5])
-          const pet = await subject.pets(petLength - 1)
+          const pet = await chickenHunt.pets(petLength - 1)
           pet[0].should.be.bignumber.equal(_inputs[0])
           pet[1].should.be.bignumber.equal(_inputs[1])
           pet[2].should.be.bignumber.equal(_inputs[2])
@@ -197,17 +181,11 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when minValid', () => {
         it('should work', async () => {
           let _inputs = minValid
-          const { logs } = await subject.changePet(petId, ..._inputs, {
+          await subject.changePet(petId, ..._inputs, {
             from: committee
           })
 
-          assert.equal(logs.length, 1)
-          assert.equal(logs[0].event, 'ChangePet')
-          assert.equal(logs[0].args.id, petId)
-          assert.equal(logs[0].args.chicken, _inputs[0])
-          assert.equal(logs[0].args.ethereum, _inputs[1])
-          assert.equal(logs[0].args.max, _inputs[2])
-          const pet = await subject.pets(petId)
+          const pet = await chickenHunt.pets(petId)
           assert.equal(pet[3], _inputs[0])
           assert.equal(pet[4], _inputs[1])
           assert.equal(pet[5], _inputs[2])
@@ -217,17 +195,11 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when maxValid', () => {
         it('should work', async () => {
           let _inputs = maxValid
-          const { logs } = await subject.changePet(petId, ..._inputs, {
+          await subject.changePet(petId, ..._inputs, {
             from: committee
           })
 
-          assert.equal(logs.length, 1)
-          assert.equal(logs[0].event, 'ChangePet')
-          assert.equal(logs[0].args.id, petId)
-          logs[0].args.chicken.should.be.bignumber.equal(_inputs[0])
-          logs[0].args.ethereum.should.be.bignumber.equal(_inputs[1])
-          logs[0].args.max.should.be.bignumber.equal(_inputs[2])
-          const pet = await subject.pets(petId)
+          const pet = await chickenHunt.pets(petId)
           pet[3].should.be.bignumber.equal(_inputs[0])
           pet[4].should.be.bignumber.equal(_inputs[1])
           pet[5].should.be.bignumber.equal(_inputs[2])
@@ -252,7 +224,7 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
     describe('when sender is user', () => {
       before(async () => {
-        await subject.join({ from: otherUser })
+        await chickenHunt.join({ from: otherUser })
       })
 
       describe('when sender is not committee', () => {
@@ -297,21 +269,14 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
         describe('when minValid', () => {
           it('should work', async () => {
             let _inputs = minValid.slice()
-            const { logs } = await subject.addItem(..._inputs, {
+            await subject.addItem(..._inputs, {
               from: committee
             })
             const itemId = itemLength
             itemLength += 1
 
-            assert.equal(logs.length, 1)
-            assert.equal(logs[0].event, 'NewItem')
-            logs[0].args.id.should.be.bignumber.equal(itemId)
-            logs[0].args.huntingMultiplier.should.be.bignumber.equal(_inputs[0])
-            logs[0].args.offenseMultiplier.should.be.bignumber.equal(_inputs[1])
-            logs[0].args.defenseMultiplier.should.be.bignumber.equal(_inputs[2])
-            logs[0].args.ethereum.should.be.bignumber.equal(_inputs[3])
-            const item = await subject.items(itemId)
-            item[0].should.be.equal(committee)
+            const item = await chickenHunt.items(itemId)
+            item[0].should.be.equal(subject.address)
             item[1].should.be.bignumber.equal(_inputs[0])
             item[2].should.be.bignumber.equal(_inputs[1])
             item[3].should.be.bignumber.equal(_inputs[2])
@@ -328,8 +293,8 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
             await helpers.increaseTime(duration)
 
             let _res = await Promise.all([
-              subject.detailsOf(committee),
-              subject.chickenOf(committee)
+              chickenHunt.detailsOf(subject.address),
+              chickenHunt.chickenOf(subject.address)
             ])
             beforeStats = _res[0]
             beforeChicken = _res[1]
@@ -337,29 +302,22 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
           it('should work', async () => {
             let _inputs = maxValid.slice()
-            const { logs } = await subject.addItem(..._inputs, {
+            await subject.addItem(..._inputs, {
               from: committee
             })
             const itemId = itemLength
             itemLength += 1
 
-            assert.equal(logs.length, 1)
-            assert.equal(logs[0].event, 'NewItem')
-            assert.equal(logs[0].args.id, itemId)
-            logs[0].args.huntingMultiplier.should.be.bignumber.equal(_inputs[0])
-            logs[0].args.offenseMultiplier.should.be.bignumber.equal(_inputs[1])
-            logs[0].args.defenseMultiplier.should.be.bignumber.equal(_inputs[2])
-            logs[0].args.ethereum.should.be.bignumber.equal(_inputs[3])
-            const item = await subject.items(itemId)
-            item[0].should.be.equal(committee)
+            const item = await chickenHunt.items(itemId)
+            item[0].should.be.equal(subject.address)
             item[1].should.be.bignumber.equal(_inputs[0])
             item[2].should.be.bignumber.equal(_inputs[1])
             item[3].should.be.bignumber.equal(_inputs[2])
             item[4].should.be.bignumber.equal(_inputs[3])
 
             const [afterStats, afterChicken] = await Promise.all([
-              subject.detailsOf(committee),
-              subject.chickenOf(committee)
+              chickenHunt.detailsOf(subject.address),
+              chickenHunt.chickenOf(subject.address)
             ])
             afterStats[0][1].should.be.bignumber.equal(
               BigNumber(beforeStats[0][1]).plus(_inputs[0]).toString(10)
@@ -376,6 +334,33 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
               .should.be.bignumber.most(1)
             afterChicken.should.be.bignumber.equal(beforeChicken)
           })
+        })
+      })
+
+      describe('withdraw', () => {
+        let ethereumBalance
+
+        before(async () => {
+          await subject.addItem(0, 0, 0, '10000000000000000')
+          const itemId = itemLength
+          itemLength += 1
+          await chickenHunt.join({ from: somebody })
+          await chickenHunt.buyItem(itemId, { from: somebody, value: '12000000000000000' })
+          ethereumBalance = await chickenHunt.ethereumBalance(subject.address)
+          ethereumBalance.should.be.bignumber.greaterThan(0)
+        })
+
+        it('should transfer ether to committee', async() => {
+          const beforeBalance = web3.eth.getBalance(committee)
+          const gas = await subject.withdraw.estimateGas()
+          console.log(1)
+          await subject.withdraw()
+          console.log(2)
+          const ethereumBalance = await chickenHunt.ethereumBalance(subject.address)
+          const afterBalance = await web3.eth.getBalance(committee)
+
+          ethereumBalance.should.be.bignumber.equal(0)
+          afterBalance.should.be.bignumber.greaterThan(beforeBalance)
         })
       })
     })
@@ -412,14 +397,10 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when minValid', () => {
         it('should work', async () => {
           let _inputs = minValid
-          const { logs } = await subject.setDepot(..._inputs, {
+          await subject.setDepot(..._inputs, {
             from: committee
           })
-          assert.equal(logs.length, 1)
-          assert.equal(logs[0].event, 'SetDepot')
-          assert.equal(logs[0].args.ethereum, _inputs[0])
-          assert.equal(logs[0].args.max, _inputs[1])
-          const depot = await subject.depot()
+          const depot = await chickenHunt.depot()
           assert.equal(depot[0], _inputs[0])
           assert.equal(depot[1], _inputs[1])
         })
@@ -428,14 +409,10 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when maxValid', () => {
         it('should work', async () => {
           let _inputs = maxValid
-          const { logs } = await subject.setDepot(..._inputs, {
+          await subject.setDepot(..._inputs, {
             from: committee
           })
-          assert.equal(logs.length, 1)
-          assert.equal(logs[0].event, 'SetDepot')
-          logs[0].args.ethereum.should.be.bignumber.equal(_inputs[0])
-          logs[0].args.max.should.be.bignumber.equal(_inputs[1])
-          const depot = await subject.depot()
+          const depot = await chickenHunt.depot()
           depot[0].should.be.bignumber.equal(_inputs[0])
           depot[1].should.be.bignumber.equal(_inputs[1])
         })
@@ -511,20 +488,12 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when minValid', () => {
         it('should work', async () => {
           let _inputs = minValid
-          const { logs } = await subject.setConfiguration(..._inputs, {
+          await subject.setConfiguration(..._inputs, {
             from: committee
           })
-          assert.equal(logs.length, 1)
-          assert.equal(logs[0].event, 'SetConfiguration')
-          assert.equal(logs[0].args.chickenA, _inputs[0])
-          assert.equal(logs[0].args.ethereumA, _inputs[1])
-          assert.equal(logs[0].args.maxA, _inputs[2])
-          assert.equal(logs[0].args.chickenB, _inputs[3])
-          assert.equal(logs[0].args.ethereumB, _inputs[4])
-          assert.equal(logs[0].args.maxB, _inputs[5])
           const [typeA, typeB] = await Promise.all([
-            subject.typeA(),
-            subject.typeB()
+            chickenHunt.typeA(),
+            chickenHunt.typeB()
           ])
           assert.equal(typeA[0], _inputs[0])
           assert.equal(typeA[1], _inputs[1])
@@ -538,20 +507,12 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
       describe('when maxValid', () => {
         it('should work', async () => {
           let _inputs = maxValid
-          const { logs } = await subject.setConfiguration(..._inputs, {
+          await subject.setConfiguration(..._inputs, {
             from: committee
           })
-          assert.equal(logs.length, 1)
-          assert.equal(logs[0].event, 'SetConfiguration')
-          logs[0].args.chickenA.should.be.bignumber.equal(_inputs[0])
-          logs[0].args.ethereumA.should.be.bignumber.equal(_inputs[1])
-          logs[0].args.maxA.should.be.bignumber.equal(_inputs[2])
-          logs[0].args.chickenB.should.be.bignumber.equal(_inputs[3])
-          logs[0].args.ethereumB.should.be.bignumber.equal(_inputs[4])
-          logs[0].args.maxB.should.be.bignumber.equal(_inputs[5])
           const [typeA, typeB] = await Promise.all([
-            subject.typeA(),
-            subject.typeB()
+            chickenHunt.typeA(),
+            chickenHunt.typeB()
           ])
           typeA[0].should.be.bignumber.equal(_inputs[0])
           typeA[1].should.be.bignumber.equal(_inputs[1])
@@ -577,26 +538,20 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
     describe('when sender is committee', () => {
       it('should set distribution', async () => {
-        const { logs } = await subject.setDistribution(..._valid, {
+        await subject.setDistribution(..._valid, {
           from: committee
         })
 
-        assert.equal(logs.length, 1)
-        assert.equal(logs[0].event, 'SetDistribution')
-        assert.equal(logs[0].args.dividendRate, _valid[0])
-        assert.equal(logs[0].args.altarCut, _valid[1])
-        assert.equal(logs[0].args.storeCut, _valid[2])
-        assert.equal(logs[0].args.devCut, _valid[3])
         const [
           dividendRate,
           altarCut,
           store,
           devCut
         ] = await Promise.all([
-          subject.dividendRate(),
-          subject.altarCut(),
-          subject.store(),
-          subject.devCut()
+          chickenHunt.dividendRate(),
+          chickenHunt.altarCut(),
+          chickenHunt.store(),
+          chickenHunt.devCut()
         ])
         assert.equal(dividendRate, _valid[0])
         assert.equal(altarCut, _valid[1])
@@ -644,14 +599,11 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
     describe('when sender is committee', () => {
       it('should set cooldown', async () => {
-        const { logs } = await subject.setCooldownTime(_newCooldown, {
+        await subject.setCooldownTime(_newCooldown, {
           from: committee
         })
 
-        assert.equal(logs.length, 1)
-        assert.equal(logs[0].event, 'SetCooldownTime')
-        assert.equal(logs[0].args.cooldownTime, _newCooldown)
-        const res = await subject.cooldownTime()
+        const res = await chickenHunt.cooldownTime()
         assert.equal(res, _newCooldown)
       })
     })
@@ -671,17 +623,13 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
     describe('when sender is committee', () => {
       it('should change name and symbol', async () => {
-        const { logs } = await subject.setNameAndSymbol(_newName, _newSymbol, {
+        await subject.setNameAndSymbol(_newName, _newSymbol, {
           from: committee
         })
 
-        assert.equal(logs.length, 1)
-        assert.equal(logs[0].event, 'SetNameAndSymbol')
-        assert.equal(logs[0].args.name, _newName)
-        assert.equal(logs[0].args.symbol, _newSymbol)
         let newName, newSymbol
         [newName, newSymbol] = await Promise.all(
-          [subject.name(), subject.symbol()]
+          [chickenHunt.name(), chickenHunt.symbol()]
         )
         assert.equal(newName, _newName)
         assert.equal(newSymbol, _newSymbol)
@@ -700,27 +648,24 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
     describe('when sender is committee', () => {
       it('should change developer', async () => {
-        const { logs } = await subject.setDeveloper(_new, {
+        await subject.setDeveloper(_new, {
           from: committee
         })
 
-        assert.equal(logs.length, 1)
-        assert.equal(logs[0].event, 'SetDeveloper')
-        assert.equal(logs[0].args.developer, _new)
-        const newDeveloper = await subject.developer()
+        const newDeveloper = await chickenHunt.developer()
         assert.equal(newDeveloper, _new)
       })
 
       it('should withdraw and reset devFee', async () => {
         let _devFee = 1987
-        await subject.setDevFee(_devFee)
-        let _balance = await subject.ethereumBalance(_new)
+        await chickenHunt.setDevFee(_devFee)
+        let _balance = await chickenHunt.ethereumBalance(_new)
         assert.equal(_balance, 0)
         await subject.setDeveloper(committee, { from: committee })
 
         let devFee, balance
         [devFee, balance] = await Promise.all(
-          [subject.devFee(), subject.ethereumBalance(_new)]
+          [chickenHunt.devFee(), chickenHunt.ethereumBalance(_new)]
         )
         assert.equal(devFee, 0)
         assert.equal(balance, _devFee)
@@ -729,16 +674,16 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
   })
 
   describe('withdrawDevFee', () => {
-    it('should work with anybody', async () => {
-      const developer = await subject.developer()
+    it('should work with somebody', async () => {
+      const developer = await chickenHunt.developer()
       let _devFee = 1987
-      await subject.setDevFee(_devFee)
-      let _balance = await subject.ethereumBalance(developer)
-      await subject.withdrawDevFee({ from: anybody })
+      await chickenHunt.setDevFee(_devFee)
+      let _balance = await chickenHunt.ethereumBalance(developer)
+      await chickenHunt.withdrawDevFee({ from: somebody })
 
       let devFee, balance
       [devFee, balance] = await Promise.all(
-        [subject.devFee(), subject.ethereumBalance(developer)]
+        [chickenHunt.devFee(), chickenHunt.ethereumBalance(developer)]
       )
       assert.equal(devFee, 0)
       assert.equal(balance, Number(_balance) + _devFee)
@@ -758,13 +703,10 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
 
     describe('when sender is committee', () => {
       it('should change committee', async () => {
-        const { logs } = await subject.setCommittee(_new, {
+        await subject.setCommittee(_new, {
           from: committee
         })
 
-        assert.equal(logs.length, 1)
-        assert.equal(logs[0].event, 'SetCommittee')
-        assert.equal(logs[0].args.committee, _new)
         const newCommittee = await subject.committee()
         assert.equal(newCommittee, _new)
       })
@@ -772,35 +714,57 @@ contract('Committee', ([committee, otherUser, _new, anybody]) => {
   })
 })
 
-contract('Committee - callFor flaw', ([committee, badman, _new, anybody]) => {
+contract('CommitteeWrapper - callFor flaw patch', ([committee, badman, _new, somebody, tokenAddress]) => {
   let subject, balance
+  const initialBalance = '9999999999999999999'
 
   before(async () => {
-    subject = await ChickenHunt.new()
     ethername = await Ethername.new()
-    await subject.init(committee)
-    await subject.join({ from: anybody })
-    await subject.buyDepots(8, { from: anybody, value: '9999999999999999999' })
-    balance = await web3.eth.getBalance(subject.address)
+    chickenHunt = await ChickenHunt.new()
+    subject = await CHCommitteeWrapper.new(chickenHunt.address)
+    await chickenHunt.init(tokenAddress)
+    await chickenHunt.setCommittee(subject.address)
+    await chickenHunt.join({ from: somebody })
+    await chickenHunt.buyDepots(8, { from: somebody, value: initialBalance })
+    balance = await web3.eth.getBalance(chickenHunt.address)
     assert.notEqual(balance, 0)
   })
 
-  it('committee could use contract ether', async () => {
-    const beforeBalance = await web3.eth.getBalance(badman)
-    let inputs = [
-      badman,
-      balance,
-      100000,
-      null
-    ]
-    await subject.callFor(...inputs, { from: committee })
-    const [ afterBalance, contractBalance ] = await Promise.all([
-      web3.eth.getBalance(badman),
-      web3.eth.getBalance(subject.address)
-    ])
+  describe('user', () => {
+    it('committee could use contract ether', async () => {
+      const beforeBalance = await web3.eth.getBalance(badman)
+      let inputs = [
+        badman,
+        100000,
+        null
+      ]
+      await subject.callFor(...inputs, { from: committee })
+      const [ afterBalance, contractBalance ] = await Promise.all([
+        web3.eth.getBalance(badman),
+        web3.eth.getBalance(chickenHunt.address)
+      ])
 
-    afterBalance.should.be.bignumber.greaterThan(beforeBalance)
-    assert.equal(contractBalance, 0)
+      afterBalance.should.be.bignumber.equal(beforeBalance)
+      contractBalance.should.be.bignumber.equal(balance)
+    })
+
+    it('committee could use msg.sender-ether', async () => {
+      const selfEther = 1874
+      const beforeBalance = await web3.eth.getBalance(badman)
+      let inputs = [
+        badman,
+        100000,
+        null
+      ]
+      await subject.callFor(...inputs, { from: committee, value: selfEther })
+      const [ afterBalance, contractBalance ] = await Promise.all([
+        web3.eth.getBalance(badman),
+        web3.eth.getBalance(chickenHunt.address)
+      ])
+
+      afterBalance.minus(beforeBalance).should.be.bignumber.equal(selfEther)
+      contractBalance.should.be.bignumber.equal(initialBalance)
+    })
   })
 
 })
